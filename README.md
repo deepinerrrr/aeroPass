@@ -2,6 +2,10 @@
 
 基于 Flutter 的执照备考应用，支持自有题库导入、练习与模拟考试、错题与合集管理、学习统计，以及使用个人 API Key 的 AI 答疑。
 
+## 原生 iOS 版本
+
+`native-ios/` 包含 SwiftUI 原生实现。打开 `native-ios/aeropass.xcodeproj` 构建；该版本同样不包含题库或 API 密钥，首次使用请在 App 内导入自有 `.xlsx` 题库。具体说明见 [native-ios/README.md](native-ios/README.md)。
+
 ## 运行
 
 1. 安装 Flutter，并运行 `flutter pub get`。

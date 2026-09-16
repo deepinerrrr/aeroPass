@@ -1,0 +1,24 @@
+# Private question banks and source workbooks
+**/题库数据.json
+**/questions.json
+*.xlsx
+*.xls
+*.csv
+*.tsv
+
+# Credentials and local configuration
+.env
+.env.*
+*.xcconfig
+*.p12
+*.mobileprovision
+*.pem
+*.key
+
+# Generated and local files
+.DS_Store
+**/xcuserdata/
+DerivedData/
+build/
+artifacts/
+*.log
