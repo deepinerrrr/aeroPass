@@ -1,0 +1,16 @@
+{
+  "name": "aeropass-update-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "aeroPass Android update manifest and APK upload server",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "multer": "^2.3.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

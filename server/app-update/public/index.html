@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>aeroPass 新版本上传</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f7fb;
+        --panel: #ffffff;
+        --text: #182235;
+        --muted: #677083;
+        --line: #e7ebf2;
+        --primary: #566c44;
+        --primary-strong: #445735;
+        --danger: #c2410c;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #111827;
+          --panel: #1f2937;
+          --text: #f8fafc;
+          --muted: #a7b0c0;
+          --line: #334155;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      main {
+        width: min(720px, calc(100vw - 32px));
+        margin: 48px auto;
+      }
+
+      header {
+        margin-bottom: 20px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.2;
+      }
+
+      p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      form,
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 12px 30px rgb(15 23 42 / 0.06);
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 16px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 11px 12px;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 160px;
+        gap: 12px;
+      }
+
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+      }
+
+      .check input {
+        width: auto;
+      }
+
+      button {
+        width: 100%;
+        border: 0;
+        border-radius: 8px;
+        padding: 13px 16px;
+        background: var(--primary);
+        color: white;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: var(--primary-strong);
+      }
+
+      progress {
+        width: 100%;
+        height: 12px;
+        margin-top: 16px;
+      }
+
+      pre {
+        overflow: auto;
+        margin: 16px 0 0;
+        padding: 14px;
+        border-radius: 8px;
+        background: rgb(100 116 139 / 0.12);
+        color: var(--text);
+      }
+
+      .error {
+        color: var(--danger);
+      }
+
+      @media (max-width: 640px) {
+        main {
+          margin: 28px auto;
+        }
+
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>aeroPass 新版本上传</h1>
+        <p>上传 APK 后，服务器会自动计算 SHA-256、生成更新清单，用户打开 APP 时即可收到更新提示。</p>
+      </header>
+
+      <form id="uploadForm">
+        <label>
+          管理口令
+          <input id="token" name="token" type="password" autocomplete="current-password" required />
+        </label>
+
+        <div class="row">
+          <label>
+            版本名称
+            <input name="versionName" placeholder="例如 1.0.1" required />
+          </label>
+          <label>
+            版本号
+            <input name="versionCode" type="number" min="1" step="1" placeholder="例如 2" required />
+          </label>
+        </div>
+
+        <label>
+          APK 文件
+          <input name="apk" type="file" accept=".apk,application/vnd.android.package-archive" required />
+        </label>
+
+        <label>
+          更新内容
+          <textarea name="releaseNotes" placeholder="例如：修复题库导入问题，优化刷题体验。"></textarea>
+        </label>
+
+        <label class="check">
+          <input name="force" type="checkbox" value="true" />
+          必要更新
+        </label>
+
+        <button id="submitButton" type="submit">上传并发布</button>
+        <progress id="progress" value="0" max="100" hidden></progress>
+        <pre id="result" hidden></pre>
+      </form>
+
+      <section class="panel" style="margin-top: 18px;">
+        <strong>当前已发布版本</strong>
+        <p id="currentRelease">正在读取…</p>
+      </section>
+
+      <section class="panel" style="margin-top: 18px;">
+        <strong>APP 更新清单地址</strong>
+        <p id="manifestUrl"></p>
+      </section>
+    </main>
+
+    <script>
+      const form = document.querySelector("#uploadForm");
+      const tokenInput = document.querySelector("#token");
+      const progress = document.querySelector("#progress");
+      const result = document.querySelector("#result");
+      const submitButton = document.querySelector("#submitButton");
+      const currentRelease = document.querySelector("#currentRelease");
+      const manifestUrl = `${location.origin}/api/appcast/android`;
+
+      document.querySelector("#manifestUrl").textContent = manifestUrl;
+      tokenInput.value = sessionStorage.getItem("aeropass_admin_token") || "";
+
+      async function loadCurrentRelease() {
+        try {
+          const response = await fetch(manifestUrl, { cache: "no-store" });
+          if (response.status === 204) {
+            currentRelease.textContent = "尚未发布版本";
+            return;
+          }
+          if (!response.ok) {
+            throw new Error(`读取失败：${response.status}`);
+          }
+          const release = await response.json();
+          currentRelease.textContent = `${release.versionName}+${release.versionCode} · ${new Date(release.publishedAt).toLocaleString()}`;
+        } catch (error) {
+          currentRelease.textContent = error.message;
+        }
+      }
+
+      loadCurrentRelease();
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        result.hidden = true;
+        result.className = "";
+        progress.hidden = false;
+        progress.value = 0;
+        submitButton.disabled = true;
+        submitButton.textContent = "正在上传…";
+
+        const data = new FormData(form);
+        const token = tokenInput.value.trim();
+        sessionStorage.setItem("aeropass_admin_token", token);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/releases/android");
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            progress.value = Math.round((event.loaded / event.total) * 100);
+          }
+        };
+        xhr.onload = () => {
+          progress.hidden = true;
+          submitButton.disabled = false;
+          submitButton.textContent = "上传并发布";
+          result.hidden = false;
+          try {
+            const body = JSON.parse(xhr.responseText || "{}");
+            if (xhr.status >= 200 && xhr.status < 300) {
+              result.textContent = JSON.stringify(body.manifest, null, 2);
+              loadCurrentRelease();
+            } else {
+              result.className = "error";
+              result.textContent = body.error || `上传失败：${xhr.status}`;
+            }
+          } catch (error) {
+            result.className = "error";
+            result.textContent = xhr.responseText || error.message;
+          }
+        };
+        xhr.onerror = () => {
+          progress.hidden = true;
+          submitButton.disabled = false;
+          submitButton.textContent = "上传并发布";
+          result.hidden = false;
+          result.className = "error";
+          result.textContent = "网络错误，上传失败。";
+        };
+        xhr.send(data);
+      });
+    </script>
+  </body>
+</html>
